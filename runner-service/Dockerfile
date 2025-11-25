@@ -11,10 +11,10 @@ RUN apt-get update && \
 RUN cabal update && \
     cabal install --lib --package-env /app hspec hspec-core QuickCheck
 
-COPY go.mod ./
+COPY runner-service/go.mod runner-service/go.sum ./
 RUN go mod download
 
-COPY . .
+COPY runner-service/ .
 RUN go build -o runner-service . && \
     chmod +x entrypoint.sh
 
