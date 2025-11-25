@@ -15,7 +15,7 @@ RUN cabal update && \
     cabal install --lib --package-env /app hspec hspec-core QuickCheck
 
 COPY --from=builder /app/runner-service .
-COPY entrypoint.sh .
+COPY --from=builder /app/entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
 EXPOSE 8080
