@@ -5,7 +5,7 @@ RUN go mod download
 COPY . .
 RUN go build -o runner-service .
 
-FROM haskell:9.4
+FROM haskell:9.8.4
 WORKDIR /app
 
 # Install system dependencies if needed (e.g. for network)
