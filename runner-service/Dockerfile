@@ -1,16 +1,11 @@
-FROM haskell:slim
+FROM golang:1.21
 
 WORKDIR /app
 
-# Install Go 1.21
+# Install Haskell (GHC and Cabal)
 RUN apt-get update && \
-    apt-get install -y wget && \
-    wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz && \
-    rm go1.21.5.linux-amd64.tar.gz && \
+    apt-get install -y ghc cabal-install && \
     rm -rf /var/lib/apt/lists/*
-
-ENV PATH=$PATH:/usr/local/go/bin
 
 # Install Haskell dependencies
 RUN cabal update && \
