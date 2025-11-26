@@ -405,7 +405,7 @@ export default function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
                 </div>
               )}
             </div>
-            <div className="h-full overflow-auto p-4 font-mono text-sm">
+            <div className="h-full overflow-auto px-4 pt-4 pb-12 font-mono text-sm">
               {output ? (
                 <>
                   {output.stdout && output.stdout.length > 0 && (
