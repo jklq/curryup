@@ -54,7 +54,7 @@ spec :: Spec
 spec = do
   describe "Binary Tree Height" $ do
     it "returns 0 for empty tree" $ do
-      treeHeight Empty `shouldBe` 0
+      treeHeight (Empty :: BinTree Int) `shouldBe` 0
     it "returns 1 for single node" $ do
       treeHeight (Branch Empty 1 Empty) `shouldBe` 1
     it "calculates height correctly for deeper trees" $ do

@@ -45,7 +45,7 @@ spec :: Spec
 spec = do
   describe "Sum Tree" $ do
     it "returns 0 for empty tree" $ do
-      sumTree Empty `shouldBe` 0
+      sumTree (Empty :: BinTree Int) `shouldBe` 0
     it "returns value for single node" $ do
       sumTree (Branch Empty 5 Empty) `shouldBe` 5
     it "sums all nodes correctly" $ do

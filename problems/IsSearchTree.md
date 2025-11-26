@@ -51,7 +51,7 @@ spec :: Spec
 spec = do
   describe "Is Search Tree" $ do
     it "returns True for empty tree" $ do
-      isSearchTree Empty `shouldBe` True
+      isSearchTree (Empty :: BinTree Int) `shouldBe` True
     it "returns True for single node" $ do
       isSearchTree (Branch Empty 1 Empty) `shouldBe` True
     it "returns True for valid BST" $ do
