@@ -163,7 +163,7 @@ func determineModuleName(code, testCode string) (string, string) {
 	re := regexp.MustCompile(`module\s+([A-Z][a-zA-Z0-9_]*)\s+where`)
 	matches := re.FindStringSubmatch(code)
 	if len(matches) > 1 {
-		return matches[1], code
+		return matches[1], "{-# LANGUAGE Safe #-}\n" + code
 	}
 
 	// Infer from test code imports
@@ -188,7 +188,7 @@ func determineModuleName(code, testCode string) (string, string) {
 		moduleName = "Solution"
 	}
 
-	return moduleName, fmt.Sprintf("module %s where\n\n%s", moduleName, code)
+	return moduleName, fmt.Sprintf("{-# LANGUAGE Safe #-}\nmodule %s where\n\n%s", moduleName, code)
 }
 
 func determineTestModuleName(testCode string) string {
