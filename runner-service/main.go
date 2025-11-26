@@ -105,12 +105,24 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run runghc
+	// Run runghc with Safe Haskell enabled
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "runghc", fmt.Sprintf("-i%s", tmpDir), filepath.Join(tmpDir, testFileName))
+	// Enable Safe Haskell to restrict dangerous language features
+	// -XSafe: Enforces the safe language subset
+	// -fpackage-trust: Required for package trust system
+	// -Wall: Show all warnings for better error messages
+	// We wrap execution in safe_run.sh to enforce resource limits (ulimit)
+	cmd := exec.CommandContext(ctx, "/app/safe_run.sh", "runghc",
+		"-XSafe",                    // Enable Safe Haskell
+		"-fpackage-trust",           // Enable package trust
+		"-Wall",                     // Show warnings
+		fmt.Sprintf("-i%s", tmpDir), // Include path
+		filepath.Join(tmpDir, testFileName))
 	cmd.Dir = tmpDir
+
+	// Resource limits are now handled by safe_run.sh via ulimit
 
 	// Capture output
 	var stdoutBuf, stderrBuf strings.Builder

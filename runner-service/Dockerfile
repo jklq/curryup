@@ -16,7 +16,7 @@ RUN go mod download
 
 COPY runner-service/ .
 RUN go build -o runner-service . && \
-    chmod +x entrypoint.sh
+    chmod +x entrypoint.sh safe_run.sh
 
 EXPOSE 8080
 CMD ["./entrypoint.sh"]
