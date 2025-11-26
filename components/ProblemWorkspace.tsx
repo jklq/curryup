@@ -38,9 +38,11 @@ export default function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   const [code, setCode] = useState<string>(problem.starterCode || '');
   const [output, setOutput] = useState<RunOutput | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [isLLMRunning, setIsLLMRunning] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isSolved, setIsSolved] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load saved state
   useEffect(() => {
@@ -161,12 +163,31 @@ export default function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   useDrag(isDraggingCorner, handleCornerMouseMove, handleCornerMouseUp, 'nwse-resize');
 
 
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsRunning(false);
+    setIsLLMRunning(false);
+  };
+
   const handleRun = async () => {
+    // Abort any previous run
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsRunning(true);
+    setIsLLMRunning(false);
     setStatus('idle');
     setOutput(null);
 
     try {
+      // Step 1: Run Haskell code
       const response = await fetch('/api/run', {
         method: 'POST',
         headers: {
@@ -176,7 +197,9 @@ export default function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
           code,
           testCode: problem.sampleTests,
           llmTests: problem.llmTests,
+          skipLLM: true,
         }),
+        signal: controller.signal,
       });
 
       const data = await response.json();
@@ -213,24 +236,51 @@ export default function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
         computedStatus = 'error';
       }
       
-      // If LLM tests failed, override status to error
-      if (data.llmResults && data.llmResults.some((r: LLMResult) => !r.result?.pass)) {
-        computedStatus = 'error';
-      }
-
       setStatus(computedStatus);
+      setIsRunning(false);
+
+      // Step 2: Run LLM tests if needed
+      // We run LLM tests if there are any, and if the Haskell run didn't completely crash (we have output)
+      if (problem.llmTests && problem.llmTests.length > 0) {
+        setIsLLMRunning(true);
+        
+        const llmResponse = await fetch('/api/llm-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code,
+            llmTests: problem.llmTests,
+          }),
+          signal: controller.signal,
+        });
+        
+        const llmData = await llmResponse.json();
+        
+        setOutput(prev => prev ? { ...prev, llmResults: llmData.llmResults } : { stdout: '', stderr: '', llmResults: llmData.llmResults });
+        
+        // If LLM tests failed, override status to error
+        if (llmData.llmResults && llmData.llmResults.some((r: LLMResult) => !r.result?.pass)) {
+          setStatus('error');
+          computedStatus = 'error';
+        }
+      }
 
       if (computedStatus === 'success') {
         setIsSolved(true);
         localStorage.setItem(`curryup-solved-${problem.slug}`, 'true');
       }
 
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('Error running code:', error);
       setStatus('error');
-      setOutput({ stdout: '', stderr: 'Failed to execute code.' });
+      setOutput(prev => prev ? { ...prev, stderr: (prev.stderr || '') + '\nFailed to execute code.' } : { stdout: '', stderr: 'Failed to execute code.' });
     } finally {
       setIsRunning(false);
+      setIsLLMRunning(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -256,17 +306,25 @@ export default function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
               Reset
             </button>
             <button
-              onClick={handleRun}
-              disabled={isRunning}
+              onClick={isRunning || isLLMRunning ? handleCancel : handleRun}
               className={clsx(
                 "flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-                isRunning 
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
+                isRunning || isLLMRunning
+                  ? "bg-red-100 text-red-600 hover:bg-red-200" 
                   : "bg-green-600 text-white hover:bg-green-500"
               )}
             >
-              {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-              Run Code
+              {isRunning || isLLMRunning ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 fill-current" />
+                  Run Code
+                </>
+              )}
             </button>
           </div>
         }
@@ -365,10 +423,10 @@ export default function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
                       )}>{output.stderr}</pre>
                     </div>
                   )}
-                  {output.llmResults && output.llmResults.length > 0 && (
+                  {((output.llmResults && output.llmResults.length > 0) || isLLMRunning) && (
                     <div className="mb-4">
                       <div className="text-slate-500 mb-1 text-xs uppercase tracking-wider">Form Validation</div>
-                      {output.llmResults.map((llmResult: LLMResult, idx: number) => (
+                      {output.llmResults?.map((llmResult: LLMResult, idx: number) => (
                         <div key={idx} className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-semibold text-slate-700">{llmResult.name}</span>
@@ -385,22 +443,19 @@ export default function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
                             )}
                           </div>
                           {llmResult.result?.reason && (
-                            <div className="text-sm text-slate-600 mb-1">
-                              <span className="text-slate-500">Reason:</span> {llmResult.result.reason}
-                            </div>
-                          )}
-                          {llmResult.result?.evidence && (
-                            <div className="text-xs text-slate-500 font-mono">
-                              <span className="text-slate-500">Evidence:</span> {llmResult.result.evidence}
-                            </div>
+                            <div className="text-slate-600 mb-1">{llmResult.result.reason}</div>
                           )}
                           {llmResult.error && (
-                            <div className="text-sm text-red-600">
-                              Error: {llmResult.error}
-                            </div>
+                            <div className="text-red-600 text-xs">Error: {llmResult.error}</div>
                           )}
                         </div>
                       ))}
+                      {isLLMRunning && (
+                        <div className="flex items-center gap-2 text-slate-500 text-sm p-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Checking solution form...</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   {(output as any).error && (
