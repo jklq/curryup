@@ -115,8 +115,8 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 	// -Wall: Show all warnings for better error messages
 	// We wrap execution in safe_run.sh to enforce resource limits (ulimit)
 	cmd := exec.CommandContext(ctx, "/app/safe_run.sh", "runghc",
-		"-XSafe",                    // Enable Safe Haskell
-		"-fpackage-trust",           // Enable package trust
+		"-XSafe", // Enable Safe Haskell
+		// "-fpackage-trust",           // Enable package trust (disabled to allow base package)
 		"-Wall",                     // Show warnings
 		fmt.Sprintf("-i%s", tmpDir), // Include path
 		filepath.Join(tmpDir, testFileName))
