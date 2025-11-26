@@ -117,7 +117,7 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 	cmd := exec.CommandContext(ctx, "/app/safe_run.sh", "runghc",
 		// "-XSafe",                    // Enable Safe Haskell (disabled to allow test runner to use unsafe modules)
 		// "-fpackage-trust",           // Enable package trust (disabled to allow base package)
-		"-Wall",                     // Show warnings
+		"-w",                        // Suppress warnings
 		fmt.Sprintf("-i%s", tmpDir), // Include path
 		filepath.Join(tmpDir, testFileName))
 	cmd.Dir = tmpDir
